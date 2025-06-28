@@ -13,16 +13,17 @@ class DataFetcher:
         except AttributeError:
             raise ValueError(f"Exchange '{exchange_name}' is not supported by CCXT.")
 
-    def fetch_data(self, symbol, timeframe, limit=100):
+    def fetch_data(self, symbol, timeframe, limit=100, since=None):
         """
         Fetch OHLCV data from the exchange.
         :param symbol: Trading pair (e.g., 'BTC/USDT').
         :param timeframe: Timeframe for the data (e.g., '1h', '5m').
         :param limit: Number of data points to fetch.
+        :param since: Timestamp in milliseconds to start fetching data from (optional).
         :return: Pandas DataFrame containing OHLCV data.
         """
         try:
-            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, limit=limit)
+            ohlcv = self.exchange.fetch_ohlcv(symbol, timeframe, since=since, limit=limit)
             df = pd.DataFrame(ohlcv, columns=['timestamp', 'open', 'high', 'low', 'close', 'volume'])
             df['timestamp'] = pd.to_datetime(df['timestamp'], unit='ms')
             print(f"Fetched {len(df)} rows of data for {symbol} on {timeframe} timeframe.")
