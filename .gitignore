@@ -68,3 +68,7 @@ dmypy.json
 # Project docs
 plan.md
 sprints.md
+
+*.csv
+*.log
+*.json

@@ -6,3 +6,7 @@ matplotlib
 joblib
 pyyaml
 loguru
+streamlit
+plotly
+seaborn
+bump2version
