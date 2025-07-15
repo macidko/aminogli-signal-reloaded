@@ -72,3 +72,5 @@ sprints.md
 *.csv
 *.log
 *.json
+
+*.pkl

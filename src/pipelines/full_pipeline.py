@@ -9,6 +9,7 @@ from src.models.model_factory import get_model
 from src.pipelines.signal_writer import TimeSeriesSignalWriter
 from src.evaluation.metrics import classification_metrics
 from src.evaluation.backtest import simple_backtest
+from datetime import datetime
 
 # Log dosyası ayarları
 os.makedirs('logs', exist_ok=True)
@@ -84,20 +85,17 @@ def run_full_pipeline(config):
     try:
         logging.info('Tahmin ve sinyal kaydı...')
         preds = model.predict(X_test)
-        # Zaman damgası oluştur
-        from datetime import datetime
         run_id = datetime.now().strftime('%Y%m%d_%H%M%S')
-        # Sinyal kaydı için DataFrame oluştur
+        # Çıktı klasörü oluştur
+        output_dir = os.path.join('outputs', f"{config['model_name']}_{run_id}")
+        os.makedirs(output_dir, exist_ok=True)
+        # Sinyal kaydı
         signal_df = X_test.copy()
         signal_df['predicted_signal'] = preds
-        signal_df['true_signal'] = y_test.values  # Gerçek label'ı da ekle
-        signal_writer = TimeSeriesSignalWriter()
-        signal_writer.save(signal_df, model_name=config['model_name'], run_id=run_id)
-        logging.info('Sinyaller kaydedildi.')
-
-        # Dosya isimleri için run_id kullan
-        metrics_path = os.path.join('logs', f"metrics_{config['model_name']}_{run_id}.csv")
-        backtest_path = os.path.join('logs', f"backtest_{config['model_name']}_{run_id}.csv")
+        signal_df['true_signal'] = y_test.values
+        signal_path = os.path.join(output_dir, 'signals.csv')
+        signal_df.to_csv(signal_path, index=False)
+        logging.info(f'Sinyaller kaydedildi: {signal_path}')
     except Exception as e:
         logging.error(f'Sinyal kaydı hatası: {e}')
         return
@@ -106,14 +104,25 @@ def run_full_pipeline(config):
         logging.info('Değerlendirme ve backtest...')
         metrics = classification_metrics(y_test, preds)
         metrics_simple = {k: v for k, v in metrics.items() if k in ['accuracy', 'f1', 'precision', 'recall']}
+        metrics_path = os.path.join(output_dir, 'metrics.csv')
         pd.DataFrame([metrics_simple]).to_csv(metrics_path, index=False)
         backtest_df = signal_df.copy()
         backtest_df['close'] = X_test['close'] if 'close' in X_test.columns else df_labeled.loc[X_test.index, 'close']
         backtest_result = simple_backtest(backtest_df, signal_col='predicted_signal', price_col='close')
+        backtest_path = os.path.join(output_dir, 'backtest.csv')
         backtest_result.to_csv(backtest_path, index=False)
         logging.info(f'Metrikler ve backtest kaydedildi: {metrics_path}, {backtest_path}')
     except Exception as e:
         logging.error(f'Değerlendirme/backtest hatası: {e}')
+        return
+
+    try:
+        # Model ve metadata kaydı
+        model_path = os.path.join(output_dir, 'model.pkl')
+        model.save(model_path, metrics=metrics_simple)
+        logging.info(f'Model ve metadata kaydedildi: {model_path}')
+    except Exception as e:
+        logging.error(f'Model kaydı hatası: {e}')
         return
 
 
